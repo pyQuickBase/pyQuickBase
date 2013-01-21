@@ -6,7 +6,7 @@ http://www.quickbase.com/api-guide/index.html
 """
 import urllib2
 import requests
-from lxml import etree as elementtree
+from lxml import etree
 
 class Error(Exception):
     """A QuickBase API error. Negative error codes are non-QuickBase codes internal to
@@ -64,7 +64,7 @@ class Client(object):
         '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<qdbapi><f n="1">t1</f><f n="2">t2</f></qdbapi>'
 
         """
-        request = elementtree.Element('qdbapi')
+        request = etree.Element('qdbapi')
 
         def add_sub_element(field, value):
             if isinstance(value, tuple):
@@ -72,7 +72,7 @@ class Client(object):
                 attrib = dict((k, str(v)) for k, v in attrib.iteritems())
             else:
                 attrib = {}
-            sub_element = elementtree.SubElement(request, field, **attrib)
+            sub_element = etree.SubElement(request, field, **attrib)
             if not isinstance(value, basestring):
                 value = str(value)
             sub_element.text = value
@@ -83,7 +83,7 @@ class Client(object):
             for value in values:
                 add_sub_element(field, value)
 
-        string = elementtree.tostring(request, encoding='UTF-8')
+        string = etree.tostring(request)
         return string
 
     @classmethod
@@ -134,49 +134,42 @@ class Client(object):
             request['apptoken'] = self.apptoken
         request['encoding'] = 'UTF-8'
         request['msInUTC'] = 1
-#        for key in request.keys():
-#                if key == 'options':
-#                    options = []
-#                    options.append(request['options'])
-#                    options.append('encoding=UTF-8')
-#                    options.append('msInUTC=1')
-#                    request['options'] = '.'.join(options)
         if self.realmhost:
             request['realmhost'] = self.realmhost
         data = self._build_request(**request)
-        print data
         headers = {
             'Content-Type': 'application/xml',
             'Accept-Charset': 'utf-8',
             'QUICKBASE-ACTION': 'API_' + action,
         }
 
-        request = urllib2.Request(url, data, headers)
-        try:
-            f = urllib2.urlopen(request, timeout=self.timeout)
-            response = f.read()
-        except urllib2.HTTPError as error:
-            try:
-                response = error.read()
-            except IOError:
-                response = None
-            raise ConnectionError(-1, str(error), response=response)
-        except urllib2.URLError as error:
-            raise ConnectionError(-2, str(error))
+        request = requests.post(url, data, headers=headers)
+        response = request.content
+#        try:
+#            f = urllib2.urlopen(request, timeout=self.timeout)
+#            response = f.read()
+#        except urllib2.HTTPError as error:
+#            try:
+#                response = error.read()
+#            except IOError:
+#                response = None
+#            raise ConnectionError(-1, str(error), response=response)
+#        except urllib2.URLError as error:
+#            raise ConnectionError(-2, str(error))
 
         # Parse the response XML
+#        try:
+#            response.decode('utf-8')
+#        except UnicodeError:
+           # Quickbase sometimes returns cp1252 even when ask for utf-8, fix it
+ #           response = response.decode('cp1252').encode('utf-8')
+#        
         try:
-            response.decode('utf-8')
-        except UnicodeError:
-            # Quickbase sometimes returns cp1252 even when ask for utf-8, fix it
-            response = response.decode('cp1252').encode('utf-8')
-        try:
-            parsed = elementtree.XML(response)
-        except SyntaxError as error:
-            raise ResponseError(-3, str(error), response=response)
-        
+            parsed = etree.XML(response)
+            error_code = parsed.find('errcode')
+        except etree.XMLSyntaxError:
+            print 'XML Parsing error.'
         # Ensure it's not a QuickBase error
-        error_code = parsed.find('errcode')
         if error_code is None:
             raise ResponseError(-4, '"errcode" not in response', response=response)
         try:
