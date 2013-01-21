@@ -5,6 +5,7 @@ http://www.quickbase.com/api-guide/index.html
 
 """
 import urllib2
+import requests
 from lxml import etree as elementtree
 
 class Error(Exception):
@@ -101,7 +102,7 @@ class Client(object):
         return records
 
     def __init__(self, username=None, password=None, base_url='https://www.quickbase.com',
-            timeout=30, authenticate=True, database=None, apptoken=None):
+            timeout=30, authenticate=True, database=None, apptoken=None, realmhost=None):
 
         """Initialize a Client with given username and password. Authenticate immediately
         unless authenticate is False.
@@ -113,6 +114,7 @@ class Client(object):
         self.timeout = timeout
         self.database = database
         self.apptoken = apptoken
+        self.realmhost = realmhost
         if authenticate:
             self.authenticate()
 
@@ -131,12 +133,24 @@ class Client(object):
         if apptoken:
             request['apptoken'] = self.apptoken
         request['encoding'] = 'UTF-8'
+        request['msInUTC'] = 1
+#        for key in request.keys():
+#                if key == 'options':
+#                    options = []
+#                    options.append(request['options'])
+#                    options.append('encoding=UTF-8')
+#                    options.append('msInUTC=1')
+#                    request['options'] = '.'.join(options)
+        if self.realmhost:
+            request['realmhost'] = self.realmhost
         data = self._build_request(**request)
+        print data
         headers = {
             'Content-Type': 'application/xml',
             'Accept-Charset': 'utf-8',
             'QUICKBASE-ACTION': 'API_' + action,
         }
+
         request = urllib2.Request(url, data, headers)
         try:
             f = urllib2.urlopen(request, timeout=self.timeout)
