@@ -1,0 +1,140 @@
+<?php
+    $event    = new Event();
+    $csv_data = array();
+    $task     = $tasks[0];
+    if (!empty($refreshToken) && !empty($calendarId)) {
+    $client->refreshToken($refreshToken);
+    if (!empty($task[145])) {
+    $event    = $calendarServer->events->get($calendarId, $task[145]);
+    }
+    $event->setSummary('test string');
+$file       = 'lastupdate';
+if (file_exists($file)) {
+    $lastupdate = (int) file_get_contents($file) * 1000;
+    $date       = date('m-d-Y h:i A', $lastupdate);
+} else {
+    if (is_writable($file)) {
+    file_put_contents($file, time());
+    } else {
+    exit('File is not writable');
+    }
+}
+file_put_contents($file, time());
+$events = $cal->events->get($calendarId);
+if (isset($lastupdate)) {
+    $optParams = array('updatedMin' => date(DateTime::RFC3339, $lastupdate));
+    $events = $calendarServer->events->listEvents($calendarId, $optParams);
+    }
+else {
+    $events = $calendarServer->events->listEvents($calendarId);
+}
+if (isset($events['items'])) {
+    $csv_data = array();
+    foreach($events->getItems() as $event) {
+        if (!empty($event)) {
+            $queryString = '{145.EX.' . ($event->getId()) . '}';
+            $tasks = $qb->modelData(do_query($queryString, 0,0, '3.2.200.212.213', 0, 'structured'), true);
+            if ($tasks) {
+                //UPDATE QUICKBASE
+                if (strtotime($tasks[0][200])<strtotime($event['updated'])) {
+                    $csv_data[] = array(
+                        $tasks[0][3],
+                        $event['id'],
+                        $event['htmlLink'],
+                        (strtotime($event['updated']) * 1000),
+                        isset($event['start']['dateTime']) ? (strtotime($event['start']['dateTime']) * 1000) : (isset($event['start']['date']) ? (strtotime($event['start']['date']) * 1000) : ""),
+                        isset($event['end']['dateTime']) ? (strtotime($event['end']['dateTime']) * 1000) : (isset($event['end']['date']) ? (strtotime($event['start']['date']) * 1000) : "")
+                    );
+                }
+                elseif (strtotime($tasks[0][2])>strtotime($event['updated'])) {
+                    //UPDATE GOOGLE
+                    try {
+                        $event = new Google_Event($calendarServer->events->get($calendarId, $event[id]));
+                        if ($event['status'] == 'canceled') {
+                            $event = new Google_Event();
+                        }
+                    }
+                    catch (Exception $e) {
+                        echo 'Event not found in Google. New event being created to replace.';
+                        else {
+                            $event = new Google_Event();
+                        }
+                    }
+                    if (strtotime($task[213])<strtotime($task[212])) {
+                        $taskEnd = new DateTime($task[212]);
+                        $taskEnd->modify('+1 hour');
+                        $task[213] = date_format($taskEnd, DateTime::RFC3339);
+                    }
+                    //FID:119 All Day Boolean
+                    if ($task[119] == 1) {
+                        $start = new Google_EventDateTime();
+                        $start->setTimeZone("America/Chicago");
+                        $start->setDate(date_format(date_create($task[212]), 'Y-m-d'));
+                        $event->setStart($start);
+                        $end = new Google_EventDateTime();
+                        $end->setTimeZone("America/Chicago");
+                        $end->setDate(date_format(date_create($task[213]), 'Y-m-d'));
+                        $event->setEnd($end);
+                    } else {
+                        $start = new Google_EventDateTime();
+                        $start->setTimeZone("America/Chicago");
+                        $start->setDateTime($task[212]);
+                        $event->setStart($start);
+                        $end = new Google_EventDateTime();
+                        $end->setTimeZone("America/Chicago");
+                        $end->setDateTime($task[213]);
+                        $event->setEnd($end);
+                    }
+
+                    if(isset($event->getId())) {
+                        $update = $calendarServer->events->patch($calendarId, $event->getId(), $event);
+                        $time = strtotime($update['updated']);
+                        $csv_data[] = array(
+                            $task[3],
+                            $update[id],
+                            $update[htmlLink],
+                            $time
+                        );
+                    }
+                    else {
+                        $fields = array(
+                            array(
+                                'fid'   => '3',
+                                'fid'   => $task[3]),
+                            array(
+                                'fid'   => 'xx',
+                                'fid'   => 'WARNING: THIS TASK WAS REMOVED FROM GOOGLE CALENDAR')
+                                );
+                        $qb->edit_record($fields);
+                    /* //CREATING NEW EVENT TO REPLACE DELETED EVENT
+                        $create = $calendarServer->events->create($calendarId, $event);
+                        $time = strtotime($update['updated']);
+                        $csv_data[] = array(
+                            $task[3],
+                            $update[id],
+                            $update[htmlLink],
+                            $time
+                            );
+                    */
+                    }
+                }
+                else {
+                    // DATES MODIFIED ARE EQUAL
+                    break;
+                }
+            }
+            else {
+                //NO MATCHING TASKS WITH GOOGLE EVENT ID
+                break;
+            }
+        }
+    }
+    if (!empty($csv_data)) {
+        $qb->import_from_csv(get_csv($csv_data), '3.145.202.200.212.213');
+    }
+}
+else {
+    break;
+}
+
+?>
