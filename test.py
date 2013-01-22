@@ -2,10 +2,17 @@ import quickbase
 
 username = 'kvseelbach'
 password = 'lt76tamu'
-dbase    = 'bgjtvsftx'
-url = 'https://www.quickbase.com'
+dbase    = 'bgiv6iafj'
+url = 'https://veil-technologies.quickbase.com'
 token = 'cprti6xdbvvaxicv9pgtzd5h6w2g'
 
-client = quickbase.Client(username, password, database=dbase, apptoken=token, realmhost='veil-technologies.quickbase.com')
-response = client.do_query(qid=13, columns='3.4.5.6.7.8.9.10', num=50, skip=10, include_rids=True, structured=True)
-print response
+client = quickbase.Client(username, password, database=dbase, apptoken=token, base_url=url)
+
+response = client.do_query(query="{'3'.EX.'1'}", structured=True, columns='3.7', database='bgjrjgcje')
+
+for r in response:
+    if r['7'] is not None:
+        rid = r['3']
+        fname = r['7']
+        file = client.get_file(fname=fname, folder='app-images', fid='7', rid=rid, database='bgjrjgcje')
+        print file

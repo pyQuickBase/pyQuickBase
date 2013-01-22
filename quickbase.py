@@ -4,9 +4,8 @@ For detailed API information, see:
 http://www.quickbase.com/api-guide/index.html
 
 """
-import urllib2
 import requests
-import time
+import os
 from lxml import etree
 
 class Error(Exception):
@@ -92,18 +91,25 @@ class Client(object):
         """Parse records in given XML response into a list of dicts."""
         records = []
         r = response.xpath('.//record')
-        for record in r:
-            record_element = []
-            for fields in record:
-                field = {}
+        for row in r:
+            record = {}
+            for fields in row:
                 if fields.tag == 'f':
-                    field['id'] = fields.get('id')
+                    record[fields.get('id')] = fields.text
                 else:
-                    field['id'] = fields.tag
-                field['val'] = fields.text
-                record_element.append(field)
-            records.append(record_element)
+                    record[fields.tag] = fields.text
+            records.append(record)
         return records
+    
+    def _parse_db_page(cls, response):
+        """Parse DBPage from QuickBase"""
+        parser = etree.HTMLParser()
+        r = response.xpath('.//pagebody')
+        #tree = etree.parse(StringIO(r[0]), parser)
+        result = etree.tostring(r[0], pretty_print=True, method="html")
+        print(result)
+        #r = response.xpath('.//pagebody')
+        #print etree.parse(r[0])
 
     def __init__(self, username=None, password=None, base_url='https://www.quickbase.com',
             timeout=30, authenticate=True, database=None, apptoken=None, realmhost=None):
@@ -143,33 +149,11 @@ class Client(object):
         data = self._build_request(**request)
         headers = {
             'Content-Type': 'application/xml',
-            'Accept-Charset': 'utf-8',
             'QUICKBASE-ACTION': 'API_' + action,
         }
-
         request = requests.post(url, data, headers=headers)
         response = request.content
-#        try:
-#            f = urllib2.urlopen(request, timeout=self.timeout)
-#            response = f.read()
-#        except urllib2.HTTPError as error:
-#            try:
-#                response = error.read()
-#            except IOError:
-#                response = None
-#            raise ConnectionError(-1, str(error), response=response)
-#        except urllib2.URLError as error:
-#            raise ConnectionError(-2, str(error))
-
-        # Parse the response XML
-#        try:
-#            response.decode('utf-8')
-#        except UnicodeError:
-           # Quickbase sometimes returns cp1252 even when ask for utf-8, fix it
- #           response = response.decode('cp1252').encode('utf-8')
-#        
         try:
-            start_time = time.time()
             parsed = etree.XML(response)
             error_code = parsed.find('errcode')
         except etree.XMLSyntaxError:
@@ -266,6 +250,44 @@ class Client(object):
         response = self.request('EditRecord', database or self.database, request,
                                 required=['num_fields_changed'])
         return int(response['num_fields_changed'])
+    
+    def add_record(self, fields, named=False, database=None):
+        """Add new record. "fields" is a dict of name:value pairs
+        (if named is True) or fid:value pairs (if named is False). Return the new records RID
+        """
+        request = {}
+        attr = 'name' if named else 'fid'
+        request['field'] = []
+        for field, value in fields.iteritems():
+            request_field = ({attr: to_xml_name(field) if named else field}, value)
+            request['field'].append(request_field)
+        response = self.request('AddRecord', database or self.database, request,
+                                required=['rid'])
+        return int(response['rid'])
+
+    def get_db_page(self, page, named=True, database=None):
+        #Get DB page from a qbase app
+        request = {}
+        if named == True:
+            request['pagename'] = page
+        else:
+            request['pageID'] = page
+        response = self.request('GetDBPage', database or self.database, request)
+        return self._parse_db_page(response)
+        
+        
+    ##HELPER METHODS USED IN CONJUNCTION WITH API
+    def get_file(self, fname, folder, rid, fid, database=None):
+        url = self.base_url + '/up/' + database + '/a/r' + rid + '/e' + fid + '/v0'
+        r = requests.get(url)
+        response = r.content
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
+        new_file = os.path.join(os.getcwd(), folder, fname)
+        g = open(new_file, "wb")
+        g.write(response)
+        g.close()
+        return new_file
 
 if __name__ == '__main__':
     import doctest
