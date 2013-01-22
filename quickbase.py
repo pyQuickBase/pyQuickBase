@@ -6,6 +6,7 @@ http://www.quickbase.com/api-guide/index.html
 """
 import urllib2
 import requests
+import time
 from lxml import etree
 
 class Error(Exception):
@@ -90,15 +91,18 @@ class Client(object):
     def _parse_records(cls, response):
         """Parse records in given XML response into a list of dicts."""
         records = []
-        for record_element in response.findall('record'):
-            record = {}
-            rid = record_element.get('rid')
-            if rid is not None:
-                record['record_id'] = rid
-            for field in record_element:
-                if field.text is not None:
-                    record[field.tag] = field.text
-            records.append(record)
+        r = response.xpath('.//record')
+        for record in r:
+            record_element = []
+            for fields in record:
+                field = {}
+                if fields.tag == 'f':
+                    field['id'] = fields.get('id')
+                else:
+                    field['id'] = fields.tag
+                field['val'] = fields.text
+                record_element.append(field)
+            records.append(record_element)
         return records
 
     def __init__(self, username=None, password=None, base_url='https://www.quickbase.com',
@@ -165,6 +169,7 @@ class Client(object):
  #           response = response.decode('cp1252').encode('utf-8')
 #        
         try:
+            start_time = time.time()
             parsed = etree.XML(response)
             error_code = parsed.find('errcode')
         except etree.XMLSyntaxError:
