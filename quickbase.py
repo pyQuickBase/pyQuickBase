@@ -4,9 +4,10 @@ For detailed API information, see:
 http://www.quickbase.com/api-guide/index.html
 
 """
-import requests
 import os
+import requests
 from lxml import etree
+import chardet
 
 class Error(Exception):
     """A QuickBase API error. Negative error codes are non-QuickBase codes internal to
@@ -100,7 +101,7 @@ class Client(object):
                     record[fields.tag] = fields.text
             records.append(record)
         return records
-    
+
     def _parse_db_page(cls, response):
         """Parse DBPage from QuickBase"""
         parser = etree.HTMLParser()
@@ -112,7 +113,7 @@ class Client(object):
         #print etree.parse(r[0])
 
     def __init__(self, username=None, password=None, base_url='https://www.quickbase.com',
-            timeout=30, authenticate=True, database=None, apptoken=None, realmhost=None):
+                 timeout=30, authenticate=True, database=None, apptoken=None, realmhost=None, hours=12, ticket=None):
 
         """Initialize a Client with given username and password. Authenticate immediately
         unless authenticate is False.
@@ -125,11 +126,14 @@ class Client(object):
         self.database = database
         self.apptoken = apptoken
         self.realmhost = realmhost
+        self.hours = hours
         if authenticate:
             self.authenticate()
+        elif ticket != None:
+            self.ticket = ticket
 
     def request(self, action, database, request, required=None, ticket=True,
-            apptoken=True):
+                apptoken=True):
         """Do a QuickBase request and return the parsed XML response. Raises appropriate
         Error subclass on HTTP, response or QuickBase error. If fields list given,
         return dict with all fields in list (raises ResponseError if any not present),
@@ -142,6 +146,7 @@ class Client(object):
             request['ticket'] = self.ticket
         if apptoken:
             request['apptoken'] = self.apptoken
+
         request['encoding'] = 'UTF-8'
         request['msInUTC'] = 1
         if self.realmhost:
@@ -150,22 +155,24 @@ class Client(object):
         headers = {
             'Content-Type': 'application/xml',
             'QUICKBASE-ACTION': 'API_' + action,
-        }
+            }
         request = requests.post(url, data, headers=headers)
         response = request.content
+        
+        encoding = chardet.detect(response)['encoding']
+        if encoding != 'utf-8':
+            response = response.decode(encoding, 'replace').encode('utf-8')
+        # print(response)
+        error_code = ''
         try:
-            parsed = etree.XML(response)
-            error_code = parsed.find('errcode')
+            parsed = etree.fromstring(response)
+            error_code = parsed.findtext('errcode')
         except etree.XMLSyntaxError:
             print 'XML Parsing error.'
-        # Ensure it's not a QuickBase error
+            # Ensure it's not a QuickBase error
         if error_code is None:
             raise ResponseError(-4, '"errcode" not in response', response=response)
-        try:
-            error_code = int(error_code.text)
-        except ValueError:
-            raise ResponseError(-5, '"errcode" not an integer', response=response)
-        if error_code != 0:
+        if error_code != '0':
             error_text = parsed.find('errtext')
             error_text = error_text.text if error_text is not None else '[no error text]'
             raise ResponseError(error_code, error_text, response=response)
@@ -177,7 +184,7 @@ class Client(object):
                 value = parsed.find(field)
                 if value is None:
                     raise ResponseError(-4, '"{0}" not in response'.format(field),
-                                        response=response)
+                        response=response)
                 values[field] = value.text or ''
             return values
         else:
@@ -189,14 +196,14 @@ class Client(object):
         and user_id fields.
 
         """
-        request = {'username': self.username, 'password': self.password}
+        request = {'username': self.username, 'password': self.password, 'hours': self.hours}
         response = self.request('Authenticate', 'main', request,
-                                required=['ticket', 'userid'], ticket=False)
+            required=['ticket', 'userid'], ticket=False)
         self.ticket = response['ticket']
         self.user_id = response['userid']
 
     def do_query(self, query=None, qid=None, qname=None, columns=None, sort=None,
-                 structured=False, num=None, only_new=False, skip=None, ascending=True,
+                 structured=True, num=None, only_new=False, skip=None, ascending=True,
                  include_rids=False, database=None):
         """Perform query and return results (list of dicts)."""
         request = {}
@@ -227,14 +234,14 @@ class Client(object):
             options.append('sortorder-D')
         if options:
             request['options'] = '.'.join(options)
-        
+
         if include_rids:
             request['includeRids'] = 1
-        
+
         response = self.request('DoQuery', database or self.database, request)
         return self._parse_records(response)
 
-    def edit_record(self, rid, fields, named=True, database=None):
+    def edit_record(self, rid, fields, named=False, database=None):
         """Update fields on the given record. "fields" is a dict of name:value pairs
         (if named is True) or fid:value pairs (if named is False). Return the number of
         fields successfully changed.
@@ -248,9 +255,9 @@ class Client(object):
             request_field = ({attr: to_xml_name(field) if named else field}, value)
             request['field'].append(request_field)
         response = self.request('EditRecord', database or self.database, request,
-                                required=['num_fields_changed'])
+            required=['num_fields_changed'])
         return int(response['num_fields_changed'])
-    
+
     def add_record(self, fields, named=False, database=None):
         """Add new record. "fields" is a dict of name:value pairs
         (if named is True) or fid:value pairs (if named is False). Return the new records RID
@@ -262,8 +269,20 @@ class Client(object):
             request_field = ({attr: to_xml_name(field) if named else field}, value)
             request['field'].append(request_field)
         response = self.request('AddRecord', database or self.database, request,
-                                required=['rid'])
+            required=['rid'])
         return int(response['rid'])
+
+    def import_from_csv(self, records_csv, clist, clist_output=None, skipfirst=False, database=None, msInUTC=True):
+        request = {}
+        request['records_csv'] = records_csv
+        if clist is not None:
+            request['clist'] = clist
+        if clist_output is not None:
+            request['clist_output'] = clist_output
+        if skipfirst:
+            request['skipfirst'] = skipfirst
+        response = self.request('ImportFromCSV', database or self.database, request, required=['num_recs_added'])
+        return int(response['num_recs_added'])
 
     def get_db_page(self, page, named=True, database=None):
         #Get DB page from a qbase app
@@ -274,8 +293,30 @@ class Client(object):
             request['pageID'] = page
         response = self.request('GetDBPage', database or self.database, request)
         return self._parse_db_page(response)
-        
-        
+
+    def get_schema(self, database=None):
+        """Perform query and return results (list of dicts)."""
+        request = {}
+
+        response = self.request('GetSchema', database or self.database, request)
+        return response
+
+    def granted_dbs(self, adminOnly=0, excludeparents=0, includeancestors=0, withembeddedtables=0, database='main'):
+        """Perform query and return results (list of dicts)."""
+        request = {}
+        if adminOnly:
+            request['adminOnly'] = adminOnly
+        if excludeparents:
+            request['excludeparents'] = excludeparents
+        if includeancestors:
+            request['includeancestors'] = includeancestors
+        if withembeddedtables:
+            request['withembeddedtables'] = withembeddedtables
+
+        response = self.request('GrantedDBs', database or self.database, request)
+        return response
+
+
     ##HELPER METHODS USED IN CONJUNCTION WITH API
     def get_file(self, fname, folder, rid, fid, database=None):
         url = self.base_url + '/up/' + database + '/a/r' + rid + '/e' + fid + '/v0'
@@ -288,6 +329,7 @@ class Client(object):
         g.write(response)
         g.close()
         return new_file
+
 
 if __name__ == '__main__':
     import doctest
