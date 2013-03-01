@@ -3,7 +3,7 @@ pyQuickBase
   
 pyQuickBase is a Python interface to the QuickBase API. The modules adhere to the QuickBase API call naming convention, written in the Python syntax. Requests are made with [**Requests.py**][requests], and [**lxml**][lxml] is used for XML processing. 
 
-This project is a work-in-progress. It is my intent to build a __*better*__ wrapper to QuickBase: one that is efficient, dependable, and enhances developer productivity. I chose the modules I did for their *speedy reputation*. It supports tokenization, SSL, realms, and most other commonly used options.
+This project is a work-in-progress. It is my intent to build a __*better*__ wrapper to QuickBase: one that is efficient, dependable, and enhances developer productivity. It supports tokenization, SSL, realms, and most other commonly used options.
 
 Version
 -
@@ -25,6 +25,8 @@ Requirements
 * Python (2.6+)
 * [lxml]
 * [Requests]
+* chardet
+* cStringIO
 
 Examples
 --------------
