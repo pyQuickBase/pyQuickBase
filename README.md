@@ -14,7 +14,9 @@ API Features
 + do_query
 + edit_record
 + add_record
-+ get_db_page (needs work)
++ get_db_page
++ list_db_pages
++ import_from_csv
 
 Helper Functions
 -----------
