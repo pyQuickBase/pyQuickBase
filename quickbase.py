@@ -101,16 +101,37 @@ class Client(object):
                     record[fields.tag] = fields.text
             records.append(record)
         return records
-
+    
+    @classmethod
     def _parse_db_page(cls, response):
         """Parse DBPage from QuickBase"""
+        from xml.sax import saxutils as su
         parser = etree.HTMLParser()
         r = response.xpath('.//pagebody')
-        #tree = etree.parse(StringIO(r[0]), parser)
-        result = etree.tostring(r[0], pretty_print=True, method="html")
-        print(result)
-        #r = response.xpath('.//pagebody')
-        #print etree.parse(r[0])
+        page = etree.tostring(r[0], encoding = 'utf-8')
+        clean_page = su.unescape(page)
+        return clean_page
+    
+    @classmethod
+    def _parse_db_page2(cls, response):
+        """Parse DBPage from QuickBase"""
+        from xml.sax import saxutils as su
+        r = response.xpath('.//pagebody/text()')
+        return r
+    
+    @classmethod
+    def _parse_list_pages(cls, response):
+        """Parse list of pages with id, type, name"""
+        pages = []
+        r = response.xpath('.//page')
+        for row in r:
+            if row.attrib['id'] != '':
+                pages.append([
+                    row.attrib['id'],
+                    row.attrib['type'],
+                    row.text,
+                ])
+        return pages
 
     def __init__(self, username=None, password=None, base_url='https://www.quickbase.com',
                  timeout=30, authenticate=True, database=None, apptoken=None, realmhost=None, hours=12, ticket=None):
@@ -292,7 +313,7 @@ class Client(object):
         else:
             request['pageID'] = page
         response = self.request('GetDBPage', database or self.database, request)
-        return self._parse_db_page(response)
+        return self._parse_db_page2(response)
 
     def get_schema(self, database=None):
         """Perform query and return results (list of dicts)."""
@@ -315,6 +336,11 @@ class Client(object):
 
         response = self.request('GrantedDBs', database or self.database, request)
         return response
+
+    def list_db_pages(self, database=None):
+        request = {}
+        response = self.request('ListDBpages', database or self.database, request)
+        return self._parse_list_pages(response)
 
 
     ##HELPER METHODS USED IN CONJUNCTION WITH API
