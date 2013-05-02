@@ -30,9 +30,12 @@ class ResponseError(Error):
 class QuickBaseError(Error):
     pass
 
+class XMLError(Error):
+    pass
+
+
 def to_xml_name(name):
     """Convert field name to tag-like name as used in QuickBase XML.
-
     >>> to_xml_name('This is a Field')
     'this_is_a_field'
     >>> to_xml_name('800 Number')
@@ -41,7 +44,6 @@ def to_xml_name(name):
     'a___b'
     >>> to_xml_name('# of Whatevers')
     '___of_whatevers'
-
     """
     xml_name = ''.join((ch if ch.isalnum() else '_') for ch in name.lower())
     if not xml_name[0].isalpha():
@@ -66,6 +68,7 @@ class Client(object):
 
         """
         request = etree.Element('qdbapi')
+        doc = etree.ElementTree(request)
 
         def add_sub_element(field, value):
             if isinstance(value, tuple):
@@ -84,8 +87,7 @@ class Client(object):
             for value in values:
                 add_sub_element(field, value)
 
-        string = etree.tostring(request)
-        return string
+        return etree.tostring(doc, xml_declaration=True, encoding="utf-8")
 
     @classmethod
     def _parse_records(cls, response):
@@ -102,15 +104,34 @@ class Client(object):
             records.append(record)
         return records
 
-    # @classmethod
-    # def _parse_db_page(cls, response):
-    #     """Parse DBPage from QuickBase"""
-    #     from xml.sax import saxutils as su
-    #     parser = etree.HTMLParser()
-    #     r = response.xpath('.//pagebody')
-    #     page = etree.tostring(r[0], encoding = 'utf-8')
-    #     clean_page = su.unescape(page)
-    #     return clean_page
+    @classmethod
+    def _parse_schema(cls, response):
+        """ Parse schema into list of Child DBIDs or Fields
+            Returns list of dicts for each field or child table
+        """
+        tables = response.xpath('.//chdbid')
+        fields = response.xpath('.//field')
+        if tables:
+            rows = []
+            for t in tables:
+                table = {
+                    'name': t.get('name'),
+                    'dbid': t.text
+                }
+                rows.append(table)
+        elif fields:
+            rows = []
+            for f in fields:
+                field = { x[0]: x[1] for x in f.items() }
+                for child in f.iterchildren():
+                    tag = child.tag
+                    if tag == 'choices':
+                        choices = tuple(c.text for c in child.iterchildren())
+                        field['choices'] = choices
+                    else:
+                        field[child.tag] = child.text
+                rows.append(field)
+        return rows
 
     @classmethod
     def _parse_db_page(cls, response):
@@ -179,20 +200,19 @@ class Client(object):
             }
         request = requests.post(url, data, headers=headers)
         response = request.content
-        print response
-
         encoding = chardet.detect(response)['encoding']
+
         if encoding != 'utf-8':
             response = response.decode(encoding, 'replace').encode('utf-8')
-        # print(type(response))
-        error_code = ''
-        """ This needs a rewrite. etree is creating another xml tree"""
+
         try:
             parsed = etree.fromstring(response)
-            error_code = parsed.findtext('errcode')
-        except etree.XMLSyntaxError:
-            print 'XML Parsing error.'
-            # Ensure it's not a QuickBase error
+        except etree.XMLSyntaxError as e:
+            raise XMLError(-1, e, response=response)
+        except etree.DocumentInvalid as e:
+            raise XMLError(-1, e, response=response)
+
+        error_code = parsed.findtext('errcode')
         if error_code is None:
             raise ResponseError(-4, '"errcode" not in response', response=response)
         if error_code != '0':
@@ -224,6 +244,10 @@ class Client(object):
             required=['ticket', 'userid'], ticket=False)
         self.ticket = response['ticket']
         self.user_id = response['userid']
+
+    def sign_out(self):
+        response = self.request('SignOut', 'main', {}, required=['errcode', 'errtext'])
+        return response
 
     def do_query(self, query=None, qid=None, qname=None, columns=None, sort=None,
                  structured=True, num=None, only_new=False, skip=None, ascending=True,
@@ -264,11 +288,16 @@ class Client(object):
         response = self.request('DoQuery', database or self.database, request)
         return self._parse_records(response)
 
+    def do_query_count(self, query, database=None):
+        request = {}
+        request['query'] = query
+        response = self.request('DoQueryCount', database or self.database, request, required=['numMatches'])
+        return int(response['numMatches'])
+
     def edit_record(self, rid, fields, named=False, database=None):
         """Update fields on the given record. "fields" is a dict of name:value pairs
         (if named is True) or fid:value pairs (if named is False). Return the number of
         fields successfully changed.
-
         """
         request = {}
         request['rid'] = rid
@@ -278,27 +307,28 @@ class Client(object):
             request_field = ({attr: to_xml_name(field) if named else field}, value)
             request['field'].append(request_field)
         response = self.request('EditRecord', database or self.database, request,
-            required=['num_fields_changed'])
-        return int(response['num_fields_changed'])
+            required=['num_fields_changed', 'rid'])
+        return response
 
-    def add_record(self, fields, named=False, database=None):
+    def add_record(self, fields, named=False, database=None, ignore_error=True):
         """Add new record. "fields" is a dict of name:value pairs
         (if named is True) or fid:value pairs (if named is False). Return the new records RID
         """
         request = {}
+        if ignore_error:
+            request['ignoreError'] = '1'
         attr = 'name' if named else 'fid'
         request['field'] = []
         for field, value in fields.iteritems():
             request_field = ({attr: to_xml_name(field) if named else field}, value)
             request['field'].append(request_field)
-        response = self.request('AddRecord', database or self.database, request,
-            required=['rid'])
+
+        response = self.request('AddRecord', database or self.database, request, required=['rid'])
         return int(response['rid'])
 
     def import_from_csv(self, records_csv, clist, clist_output=None, skipfirst=False, database=None, msInUTC=True):
         request = {}
         request['records_csv'] = records_csv
-        print records_csv
         if clist is not None:
             request['clist'] = clist
         if clist_output is not None:
@@ -318,12 +348,11 @@ class Client(object):
         response = self.request('GetDBPage', database or self.database, request)
         return self._parse_db_page(response)
 
-    def get_schema(self, database=None):
+    def get_schema(self, database=None, required=None):
         """Perform query and return results (list of dicts)."""
         request = {}
-
-        response = self.request('GetSchema', database or self.database, request)
-        return response
+        response = self.request('GetSchema', database or self.database, request, required=required)
+        return self._parse_schema(response)
 
     def granted_dbs(self, adminOnly=0, excludeparents=0, includeancestors=0, withembeddedtables=0, database='main'):
         """Perform query and return results (list of dicts)."""
@@ -361,7 +390,10 @@ class Client(object):
         response = self.request('AddReplaceDBPage', database or self.database, request, required=['errcode', 'errtext'])
         return str(response['errtext'])
 
-    ##HELPER METHODS USED IN CONJUNCTION WITH API
+    """
+        HELPER METHODS USED IN CONJUNCTION WITH API
+        MOVE INTO SEPARATE FILE
+    """
     def get_file(self, fname, folder, rid, fid, database=None):
         url = self.base_url + '/up/' + database + '/a/r' + rid + '/e' + fid + '/v0'
         r = requests.get(url)
