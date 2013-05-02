@@ -101,24 +101,24 @@ class Client(object):
                     record[fields.tag] = fields.text
             records.append(record)
         return records
-    
+
+    # @classmethod
+    # def _parse_db_page(cls, response):
+    #     """Parse DBPage from QuickBase"""
+    #     from xml.sax import saxutils as su
+    #     parser = etree.HTMLParser()
+    #     r = response.xpath('.//pagebody')
+    #     page = etree.tostring(r[0], encoding = 'utf-8')
+    #     clean_page = su.unescape(page)
+    #     return clean_page
+
     @classmethod
     def _parse_db_page(cls, response):
         """Parse DBPage from QuickBase"""
-        from xml.sax import saxutils as su
-        parser = etree.HTMLParser()
-        r = response.xpath('.//pagebody')
-        page = etree.tostring(r[0], encoding = 'utf-8')
-        clean_page = su.unescape(page)
-        return clean_page
-    
-    @classmethod
-    def _parse_db_page2(cls, response):
-        """Parse DBPage from QuickBase"""
-        from xml.sax import saxutils as su
         r = response.xpath('.//pagebody/text()')
+        r = ''.join([s.encode('utf-8').rstrip() for s in r if s.strip()])
         return r
-    
+
     @classmethod
     def _parse_list_pages(cls, response):
         """Parse list of pages with id, type, name"""
@@ -179,12 +179,14 @@ class Client(object):
             }
         request = requests.post(url, data, headers=headers)
         response = request.content
-        
+        print response
+
         encoding = chardet.detect(response)['encoding']
         if encoding != 'utf-8':
             response = response.decode(encoding, 'replace').encode('utf-8')
-        # print(response)
+        # print(type(response))
         error_code = ''
+        """ This needs a rewrite. etree is creating another xml tree"""
         try:
             parsed = etree.fromstring(response)
             error_code = parsed.findtext('errcode')
@@ -296,6 +298,7 @@ class Client(object):
     def import_from_csv(self, records_csv, clist, clist_output=None, skipfirst=False, database=None, msInUTC=True):
         request = {}
         request['records_csv'] = records_csv
+        print records_csv
         if clist is not None:
             request['clist'] = clist
         if clist_output is not None:
@@ -303,7 +306,7 @@ class Client(object):
         if skipfirst:
             request['skipfirst'] = skipfirst
         response = self.request('ImportFromCSV', database or self.database, request, required=['num_recs_added'])
-        return int(response['num_recs_added'])
+        return "%d records added." % (int(response['num_recs_added']))
 
     def get_db_page(self, page, named=True, database=None):
         #Get DB page from a qbase app
@@ -313,7 +316,7 @@ class Client(object):
         else:
             request['pageID'] = page
         response = self.request('GetDBPage', database or self.database, request)
-        return self._parse_db_page2(response)
+        return self._parse_db_page(response)
 
     def get_schema(self, database=None):
         """Perform query and return results (list of dicts)."""
@@ -342,6 +345,21 @@ class Client(object):
         response = self.request('ListDBpages', database or self.database, request)
         return self._parse_list_pages(response)
 
+    def add_replace_db_page(self, pagebody, pagename=None, pageid=None, pagetype=1, database=None):
+        """Add replace dbpage - required pagebody, database, pageId(replace) or pageName(add)"""
+        request = {}
+        if len([x for x in (pagename, pageid) if x]) != 1:
+            raise TypeError('must specify one of pagename or pageid')
+        if pagename:
+            request['pagename'] = pagename
+        else:
+            request['pageid'] = pageid
+        if pagetype:
+            request['pagetype'] = pagetype
+        request['pagebody'] = pagebody
+
+        response = self.request('AddReplaceDBPage', database or self.database, request, required=['errcode', 'errtext'])
+        return str(response['errtext'])
 
     ##HELPER METHODS USED IN CONJUNCTION WITH API
     def get_file(self, fname, folder, rid, fid, database=None):
