@@ -199,6 +199,7 @@ class Client(object):
             'QUICKBASE-ACTION': 'API_' + action,
             }
         request = requests.post(url, data, headers=headers)
+        print request
         response = request.content
         encoding = chardet.detect(response)['encoding']
 
@@ -328,15 +329,16 @@ class Client(object):
 
     def import_from_csv(self, records_csv, clist, clist_output=None, skipfirst=False, database=None, msInUTC=True):
         request = {}
-        request['records_csv'] = records_csv
+        request['records_csv'] = ''.join(['<![CDATA[', records_csv, ']]>'])
         if clist is not None:
             request['clist'] = clist
         if clist_output is not None:
             request['clist_output'] = clist_output
         if skipfirst:
             request['skipfirst'] = skipfirst
-        response = self.request('ImportFromCSV', database or self.database, request, required=['num_recs_added'])
-        return "%d records added." % (int(response['num_recs_added']))
+        response = self.request('ImportFromCSV', database or self.database, request, required=None)
+        #return "%d records added." % (int(response['num_recs_added']))
+        return response
 
     def get_db_page(self, page, named=True, database=None):
         #Get DB page from a qbase app
