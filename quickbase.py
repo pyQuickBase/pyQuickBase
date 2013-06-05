@@ -98,9 +98,16 @@ class Client(object):
             record = {}
             for fields in row:
                 if fields.tag == 'f':
-                    record[fields.get('id')] = fields.text
+                    fid = fields.get('id')
                 else:
-                    record[fields.tag] = fields.text
+                    fid = fields.tag
+                if fields.text:
+                    record[fid] = fields.text
+                else:
+                    record[fid] = ''
+                for child in fields:
+                    if child.tail is not None:
+                        record[fid] += child.tail
             records.append(record)
         return records
 
@@ -199,41 +206,43 @@ class Client(object):
             'QUICKBASE-ACTION': 'API_' + action,
             }
         request = requests.post(url, data, headers=headers)
-        print request
         response = request.content
         encoding = chardet.detect(response)['encoding']
 
         if encoding != 'utf-8':
             response = response.decode(encoding, 'replace').encode('utf-8')
 
-        try:
-            parsed = etree.fromstring(response)
-        except etree.XMLSyntaxError as e:
-            raise XMLError(-1, e, response=response)
-        except etree.DocumentInvalid as e:
-            raise XMLError(-1, e, response=response)
+        if parse:
+            try:
+                parsed = etree.fromstring(response)
+            except etree.XMLSyntaxError as e:
+                raise XMLError(-1, e, response=response)
+            except etree.DocumentInvalid as e:
+                raise XMLError(-1, e, response=response)
 
-        error_code = parsed.findtext('errcode')
-        if error_code is None:
-            raise ResponseError(-4, '"errcode" not in response', response=response)
-        if error_code != '0':
-            error_text = parsed.find('errtext')
-            error_text = error_text.text if error_text is not None else '[no error text]'
-            raise ResponseError(error_code, error_text, response=response)
+            error_code = parsed.findtext('errcode')
+            if error_code is None:
+                raise ResponseError(-4, '"errcode" not in response', response=response)
+            if error_code != '0':
+                error_text = parsed.find('errtext')
+                error_text = error_text.text if error_text is not None else '[no error text]'
+                raise ResponseError(error_code, error_text, response=response)
 
-        if required:
-            # Build dict of required response fields caller asked for
-            values = {}
-            for field in required:
-                value = parsed.find(field)
-                if value is None:
-                    raise ResponseError(-4, '"{0}" not in response'.format(field),
-                        response=response)
-                values[field] = value.text or ''
-            return values
+            if required:
+                # Build dict of required response fields caller asked for
+                values = {}
+                for field in required:
+                    value = parsed.find(field)
+                    if value is None:
+                        raise ResponseError(-4, '"{0}" not in response'.format(field),
+                            response=response)
+                    values[field] = value.text or ''
+                return values
+            else:
+                # Return parsed XML directly
+                return parsed
         else:
-            # Return parsed XML directly
-            return parsed
+            return response
 
     def authenticate(self):
         """Authenticate with username and password passed to __init__(). Set the ticket
@@ -329,7 +338,8 @@ class Client(object):
 
     def import_from_csv(self, records_csv, clist, clist_output=None, skipfirst=False, database=None, msInUTC=True):
         request = {}
-        request['records_csv'] = ''.join(['<![CDATA[', records_csv, ']]>'])
+        # request['records_csv'] = ''.join(['<![CDATA[', '\n', records_csv, '\n', ']]>'])
+        request['records_csv'] = records_csv
         if clist is not None:
             request['clist'] = clist
         if clist_output is not None:
