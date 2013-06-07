@@ -212,37 +212,36 @@ class Client(object):
         if encoding != 'utf-8':
             response = response.decode(encoding, 'replace').encode('utf-8')
 
-        if parse:
-            try:
-                parsed = etree.fromstring(response)
-            except etree.XMLSyntaxError as e:
-                raise XMLError(-1, e, response=response)
-            except etree.DocumentInvalid as e:
-                raise XMLError(-1, e, response=response)
 
-            error_code = parsed.findtext('errcode')
-            if error_code is None:
-                raise ResponseError(-4, '"errcode" not in response', response=response)
-            if error_code != '0':
-                error_text = parsed.find('errtext')
-                error_text = error_text.text if error_text is not None else '[no error text]'
-                raise ResponseError(error_code, error_text, response=response)
+        try:
+            parsed = etree.fromstring(response)
+        except etree.XMLSyntaxError as e:
+            raise XMLError(-1, e, response=response)
+        except etree.DocumentInvalid as e:
+            raise XMLError(-1, e, response=response)
 
-            if required:
-                # Build dict of required response fields caller asked for
-                values = {}
-                for field in required:
-                    value = parsed.find(field)
-                    if value is None:
-                        raise ResponseError(-4, '"{0}" not in response'.format(field),
-                            response=response)
-                    values[field] = value.text or ''
-                return values
-            else:
-                # Return parsed XML directly
-                return parsed
+        error_code = parsed.findtext('errcode')
+        if error_code is None:
+            raise ResponseError(-4, '"errcode" not in response', response=response)
+        if error_code != '0':
+            error_text = parsed.find('errtext')
+            error_text = error_text.text if error_text is not None else '[no error text]'
+            raise ResponseError(error_code, error_text, response=response)
+
+        if required:
+            # Build dict of required response fields caller asked for
+            values = {}
+            for field in required:
+                value = parsed.find(field)
+                if value is None:
+                    raise ResponseError(-4, '"{0}" not in response'.format(field),
+                        response=response)
+                values[field] = value.text or ''
+            return values
         else:
-            return response
+            # Return parsed XML directly
+            return parsed
+
 
     def authenticate(self):
         """Authenticate with username and password passed to __init__(). Set the ticket
