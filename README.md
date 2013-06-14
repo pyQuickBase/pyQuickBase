@@ -1,9 +1,12 @@
 pyQuickBase
 =========
-  
-pyQuickBase is a Python interface to the QuickBase API. The modules adhere to the QuickBase API call naming convention, written in the Python syntax. Requests are made with [**Requests.py**][requests], and [**lxml**][lxml] is used for XML processing. 
 
-This project is a work-in-progress. I started this project hoping to build a performant, reliable Python client to QuickBase. It supports tokenization, SSL, realms, and most other commonly used options. I appreciate feedback and would love to have another developer help improve the project.
+pyQuickBase is a Python interface to the QuickBase API. The modules adhere to the QuickBase API call naming convention, written in the Python syntax. Requests are made with [**Requests.py**][requests], and [**lxml**][lxml] is used for XML processing.
+
+This project is a work-in-progress. I started this project hoping to build a performant, reliable Python client to QuickBase to use for my day job. It supports tokenization, SSL, realms, and most other commonly used options. I appreciate feedback and would love to have another developer help improve the project.
+
+This project is a fork of Oyster.com's QuickBase interface, available on [**github**][oyster], with significant changes (and being actively developed). The original license is included in the license file.
+
 
 Version
 -
@@ -39,11 +42,12 @@ Examples
 
 License
 -
-MIT
+MIT, See license file.
 
 Developed by [**Kevin V Seelbach**][ks] for professional use at [VeilSun][vs]. Contact me by email at [kevinseelbach@gmail.com][ks].
 
-  [requests]: http://docs.python-requests.org/en/latest/ 
+  [requests]: http://docs.python-requests.org/en/latest/
   [lxml]: http://lxml.de/
   [vs]: http://www.veilsun.com
   [ks]:kevinseelbach@gmail.com
+  [oyster]: https://github.com/oysterhotels/quickbase

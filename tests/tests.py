@@ -3,13 +3,21 @@ __author__ = 'Kevin V Seelbach'
 import unittest
 import quickbase
 import pprint
+import os
+
+QUICKBASE_USER = os.environ(['QUICKBASE_USER'])
+QUICKBASE_PASSWORD = os.environ(['QUICKBASE_PASSWORD'])
+APPTOKEN = os.environ(['QUICKBASE_TOKEN'])
+
+# Edit the tests with your values and desired FIDs. Tables must exist before running tests. In the future, I would like to add functionality to create an app, bootstrap with tables and test data, and cleanup after testing. 
+
 
 class APITestCase(unittest.TestCase):
-    username = 'support@veiltech.com'
-    password = 'VeilTech123'
-    app_dbid = 'bhdnxfvdd'
-    table_dbid = 'bhdnxfveb'
-    realm = 'https://veil-technologies.quickbase.com'
+    username = QUICKBASE_USER
+    password = QUICKBASE_PASSWORD
+    app_dbid = # App dbid
+    table_dbid = # Table you are using for testing
+    realm = # Url of your realm, e.g. https://companyname.quickbase.com
     apptoken = 'ds6psqvbjrvkahmgbspfdy43d7v'
 
     @classmethod
