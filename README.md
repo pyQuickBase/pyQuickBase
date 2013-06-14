@@ -1,17 +1,53 @@
-quickbase
+pyQuickBase
 =========
 
-Simple Python interface to the [Intuit QuickBase API](http://www.quickbase.com/api-guide/index.html), as used by [Oyster.com](http://www.oyster.com/).
+pyQuickBase is a Python interface to the QuickBase API. The modules adhere to the QuickBase API call naming convention, written in the Python syntax. Requests are made with [**Requests.py**][requests], and [**lxml**][lxml] is used for XML processing.
 
-Simple example:
+This project is a work-in-progress. I started this project hoping to build a performant, reliable Python client to QuickBase to use for my day job. It supports tokenization, SSL, realms, and most other commonly used options. I appreciate feedback and would love to have another developer help improve the project.
 
-```python
->>> import quickbase
->>> client = quickbase.Client(username, password, database='abcd1234')
->>> client.do_query("{'6'.EX.'Foo'}", columns='a')
-[{'record_id': 1234, ...}]
->>> client.edit_record(1234, {6: 'Bar'}, named=False)
-1
-```
+This project is a fork of Oyster.com's QuickBase interface, available on [**github**][oyster], with significant changes (and being actively developed). The original license is included in the license file.
 
-See the docstring comments in the code for more details and the [QuickBase API docs](http://www.quickbase.com/api-guide/index.html) for more details.
+
+Version
+-
+0.1
+
+API Features
+-----------
++ do_query
++ edit_record
++ add_record
++ get_db_page
++ list_db_pages
++ import_from_csv
+
+Helper Functions
+-----------
++ get_file -- used in conjunction with a query and specified attachment field ID, can download one or many files from a table to local folder.
+
+Requirements
+-----------
+* Python (2.6+)
+* [lxml]
+* [Requests]
+* chardet
+* cStringIO
+
+Examples
+--------------
+    client = quickbase.Client(username, password, database=dbase, apptoken=token, base_url=url)
+    response = client.do_query(query="'3'.XEX.''}", structured=True, columns='a', database='yourdbname')
+    for r in reponse:
+        print r
+
+License
+-
+MIT, See license file.
+
+Developed by [**Kevin V Seelbach**][ks] for professional use at [VeilSun][vs]. Contact me by email at [kevinseelbach@gmail.com][ks].
+
+  [requests]: http://docs.python-requests.org/en/latest/
+  [lxml]: http://lxml.de/
+  [vs]: http://www.veilsun.com
+  [ks]:kevinseelbach@gmail.com
+  [oyster]: https://github.com/oysterhotels/quickbase
