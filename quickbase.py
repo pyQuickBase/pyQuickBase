@@ -5,9 +5,34 @@ http://www.quickbase.com/api-guide/index.html
 
 """
 import os
+try:
+    from lxml import etree
+    print("running with lxml.etree")
+except ImportError:
+    try:
+        # Python 2.5+
+        import xml.etree.cElementTree as etree
+        print("running with cElementTree on Python 2.5+")
+    except ImportError:
+        try:
+            # Python 2.5+
+            import xml.etree.ElementTree as etree
+            print("running with ElementTree on Python 2.5+")
+        except ImportError:
+            try:
+                # normal cElementTree install
+                import cElementTree as etree
+                print("running with cElementTree")
+            except ImportError:
+                try:
+                # normal ElementTree install
+                    import elementtree.ElementTree as etree
+                    print("running with ElementTree")
+                except ImportError:
+                    print("Failed to import ElementTree from any known place")
 import requests
-from lxml import etree
 import chardet
+
 
 class Error(Exception):
     """A QuickBase API error. Negative error codes are non-QuickBase codes internal to
@@ -21,14 +46,18 @@ class Error(Exception):
         self.msg = msg
         self.response = response
 
+
 class ConnectionError(Error):
     pass
+
 
 class ResponseError(Error):
     pass
 
+
 class QuickBaseError(Error):
     pass
+
 
 class XMLError(Error):
     pass
@@ -49,6 +78,7 @@ def to_xml_name(name):
     if not xml_name[0].isalpha():
         xml_name = '_' + xml_name
     return xml_name
+
 
 class Client(object):
     """Client to the QuickBase API."""
@@ -118,8 +148,8 @@ class Client(object):
         """
         tables = response.xpath('.//chdbid')
         fields = response.xpath('.//field')
+        rows = []
         if tables:
-            rows = []
             for t in tables:
                 table = {
                     'name': t.get('name'),
@@ -127,9 +157,8 @@ class Client(object):
                 }
                 rows.append(table)
         elif fields:
-            rows = []
             for f in fields:
-                field = { x[0]: x[1] for x in f.items() }
+                field = {x[0]: x[1] for x in f.items()}
                 for child in f.iterchildren():
                     tag = child.tag
                     if tag == 'choices':
@@ -178,7 +207,7 @@ class Client(object):
         self.hours = hours
         if authenticate:
             self.authenticate()
-        elif ticket != None:
+        elif ticket is not None:
             self.ticket = ticket
 
     def request(self, action, database, request, required=None, ticket=True,
@@ -204,14 +233,13 @@ class Client(object):
         headers = {
             'Content-Type': 'application/xml',
             'QUICKBASE-ACTION': 'API_' + action,
-            }
+        }
         request = requests.post(url, data, headers=headers)
         response = request.content
         encoding = chardet.detect(response)['encoding']
 
         if encoding != 'utf-8':
             response = response.decode(encoding, 'replace').encode('utf-8')
-
 
         try:
             parsed = etree.fromstring(response)
@@ -235,13 +263,12 @@ class Client(object):
                 value = parsed.find(field)
                 if value is None:
                     raise ResponseError(-4, '"{0}" not in response'.format(field),
-                        response=response)
+                                        response=response)
                 values[field] = value.text or ''
             return values
         else:
             # Return parsed XML directly
             return parsed
-
 
     def authenticate(self):
         """Authenticate with username and password passed to __init__(). Set the ticket
@@ -249,7 +276,8 @@ class Client(object):
 
         """
         request = {'username': self.username, 'password': self.password, 'hours': self.hours}
-        response = self.request('Authenticate', 'main', request,
+        response = self.request(
+            'Authenticate', 'main', request,
             required=['ticket', 'userid'], ticket=False)
         self.ticket = response['ticket']
         self.user_id = response['userid']
@@ -257,6 +285,16 @@ class Client(object):
     def sign_out(self):
         response = self.request('SignOut', 'main', {}, required=['errcode', 'errtext'])
         return response
+
+    def delete_record(self, rid=None, key=None, database=None):
+        request = {}
+        if len([q for q in (rid, key) if q]) != 1:
+            raise TypeError('must specify one of rid or key')
+        if rid:
+            request['rid'] = rid
+        if key:
+            request['key'] = key
+        return self.request('DeleteRecord', database or self.database, request, required=['rid'])
 
     def do_query(self, query=None, qid=None, qname=None, columns=None, sort=None,
                  structured=True, num=None, only_new=False, skip=None, ascending=True,
@@ -316,7 +354,7 @@ class Client(object):
             request_field = ({attr: to_xml_name(field) if named else field}, value)
             request['field'].append(request_field)
         response = self.request('EditRecord', database or self.database, request,
-            required=['num_fields_changed', 'rid'])
+                                required=['num_fields_changed', 'rid'])
         return response
 
     def add_record(self, fields, named=False, database=None, ignore_error=True):
@@ -335,18 +373,31 @@ class Client(object):
         response = self.request('AddRecord', database or self.database, request, required=['rid'])
         return int(response['rid'])
 
-    def import_from_csv(self, records_csv, clist, clist_output=None, skipfirst=False, database=None, msInUTC=True):
+    def import_from_csv(self, records_csv, clist, clist_output=None, skipfirst=False, database=None, required=None, msInUTC=True):
+
+        """
+        Imports a CSV file (converted to multi-line string) to QuickBase columns specified in clist.
+        kwargs:
+            records_csv - string
+            clist - fields to import to
+            clist_output - Specifies which fields should be returned in addition to the record ID and updated ID.
+            skipfirst - Number of records to skip at beginning of response
+            required - fids of fields to return in addition to new rids
+            database
+        returns:
+            rids of new records or required fields
+        """
         request = {}
-        # request['records_csv'] = ''.join(['<![CDATA[', '\n', records_csv, '\n', ']]>'])
         request['records_csv'] = records_csv
-        if clist is not None:
+        if isinstance(clist, list):
+            request['clist'] = '.'.join(str(c) for c in clist)
+        else:
             request['clist'] = clist
         if clist_output is not None:
             request['clist_output'] = clist_output
         if skipfirst:
             request['skipfirst'] = skipfirst
-        response = self.request('ImportFromCSV', database or self.database, request, required=None)
-        #return "%d records added." % (int(response['num_recs_added']))
+        response = self.request('ImportFromCSV', database or self.database, request, required)
         return response
 
     def get_db_page(self, page, named=True, database=None):
@@ -401,10 +452,6 @@ class Client(object):
         response = self.request('AddReplaceDBPage', database or self.database, request, required=['errcode', 'errtext'])
         return str(response['errtext'])
 
-    """
-        HELPER METHODS USED IN CONJUNCTION WITH API
-        MOVE INTO SEPARATE FILE
-    """
     def get_file(self, fname, folder, rid, fid, database=None):
         url = self.base_url + '/up/' + database + '/a/r' + rid + '/e' + fid + '/v0'
         r = requests.get(url)

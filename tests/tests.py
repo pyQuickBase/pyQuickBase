@@ -1,28 +1,34 @@
 __author__ = 'Kevin V Seelbach'
-
+import os
 import unittest
 import quickbase
 import pprint
-import os
+from lxml import etree
 
-QUICKBASE_USER = os.environ(['QUICKBASE_USER'])
-QUICKBASE_PASSWORD = os.environ(['QUICKBASE_PASSWORD'])
-APPTOKEN = os.environ(['QUICKBASE_TOKEN'])
-
-# Edit the tests with your values and desired FIDs. Tables must exist before running tests. In the future, I would like to add functionality to create an app, bootstrap with tables and test data, and cleanup after testing. 
-
+QUICKBASE_USER = os.environ['QUICKBASE_USER'] 
+QUICKBASE_PASSWORD = os.environ['QUICKBASE_PASSWORD']
+TEST_APP_TOKEN = # Your app token 
+TEST_APP_DBID = # Your app dbid 
+TEST_TABLE_DBID = # The table you are working with
+TEST_BASE_URL = # Your QuickBase URL
+pp = pprint.PrettyPrinter(indent=4)
+module_dir = os.path.dirname(__file__)
 
 class APITestCase(unittest.TestCase):
     username = QUICKBASE_USER
     password = QUICKBASE_PASSWORD
-    app_dbid = # App dbid
-    table_dbid = # Table you are using for testing
-    realm = # Url of your realm, e.g. https://companyname.quickbase.com
-    apptoken = 'ds6psqvbjrvkahmgbspfdy43d7v'
+    app_dbid = TEST_APP_DBID
+    table_dbid = TEST_TABLE_DBID 
+    import_csv_dbid = TEST_TABLE_DBID
+    test_csv_file = # Your test file path  
+    test_csv_clist =  # Your test clist (string period delimited)
+    realm = TEST_BASE_URL
+    apptoken = TEST_APP_TOKEN
 
     @classmethod
     def setUpClass(cls):
-        cls._client = quickbase.Client(username=cls.username, password=cls.password, database=cls.app_dbid, base_url=cls.realm, apptoken=cls.apptoken)
+        cls._client = quickbase.Client(username=cls.username, password=cls.password, database=cls.app_dbid,
+                                       base_url=cls.realm, apptoken=cls.apptoken)
 
     @classmethod
     def tearDownClass(cls):
@@ -64,7 +70,7 @@ class DoQueryTests(APITestCase):
         self.assertIsNotNone(response)
 
     def test_do_query_count(self):
-        query = "{'3'.EX.''}"
+        query = "{'3'.XEX.''}"
         response = self._client.do_query_count(query, database=self.table_dbid)
         print "%d records match query." % (response)
         self.assertGreaterEqual(response, 0)
@@ -102,6 +108,31 @@ class AddRecordTests(APITestCase):
         response = self._client.add_record({'Match Value': '333', 'clist': '43.22.11', 'slist': '88.23.54'},
                                            named=True, database=self.table_dbid)
         self.assertGreaterEqual(response, 1)
+
+def valid_XML_char_ordinal(i):
+    return ( # conditions ordered by presumed frequency
+             0x20 <= i <= 0xD7FF
+             or i in (0x9, 0xA, 0xD)
+             or 0xE000 <= i <= 0xFFFD
+             or 0x10000 <= i <= 0x10FFFF
+    )
+
+
+class ImportFromCSVTests(APITestCase):
+    def test_import_from_csv_rids_and_delete(self):
+        test_data = open(self.test_csv_file, 'r').read()
+        test_data = ''.join(c for c in test_data if valid_XML_char_ordinal(ord(c)))
+        response = self._client.import_from_csv(test_data, clist=self.test_csv_clist,
+                                                clist_output='3.6.7',
+                                                database=self.import_csv_dbid)
+        self.assertIsNotNone(response)
+        num_rec_added = response.findtext('num_recs_added')
+        rows = []
+        for item in response.iterfind('.//fields'):
+            tmp = {}
+            for field in item.iterchildren():
+                tmp.update({(field.get('id')): field.text})
+            rows.append(tmp)
 
 
 if __name__ == '__main__':

@@ -10,16 +10,22 @@ This project is a fork of Oyster.com's QuickBase interface, available on [**gith
 
 Version
 -
-0.1
+0.2
 
 API Features
 -----------
 + do_query
++ do_query_count
++ granted_dbs
++ add_replace_db_page
 + edit_record
 + add_record
 + get_db_page
 + list_db_pages
 + import_from_csv
++ delete_record
++ get_schema
+
 
 Helper Functions
 -----------
@@ -44,10 +50,9 @@ License
 -
 MIT, See license file.
 
-Developed by [**Kevin V Seelbach**][ks] for professional use at [VeilSun][vs]. Contact me by email at [kevinseelbach@gmail.com][ks].
+Developed by [**Kevin V Seelbach**][ks]. Contact me by email at [kevinseelbach@gmail.com][ks].
 
   [requests]: http://docs.python-requests.org/en/latest/
   [lxml]: http://lxml.de/
-  [vs]: http://www.veilsun.com
   [ks]:kevinseelbach@gmail.com
   [oyster]: https://github.com/oysterhotels/quickbase
