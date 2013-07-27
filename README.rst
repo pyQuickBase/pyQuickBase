@@ -1,5 +1,5 @@
 
-Requests: HTTP for Humans
+pyQuickBase: Python Interface to QuickBase API
 =========================
 
 .. image:: https://badge.fury.io/py/pyquickbase.png
