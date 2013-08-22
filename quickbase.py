@@ -116,7 +116,9 @@ class Client(object):
                 else:
                     record[fid] = ''
                 for child in fields:
-                    if child.tail is not None:
+                    if child.tag == 'url':
+                        record[fid] = child.text
+                    elif child.tail is not None:
                         record[fid] += child.tail
             records.append(record)
         return records
@@ -449,7 +451,6 @@ class Client(object):
         g.write(response)
         g.close()
         return new_file
-
 
     def return_file(self, url):
         headers = {'Cookie': 'ticket=%s' % self.ticket }
