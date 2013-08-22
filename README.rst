@@ -1,6 +1,6 @@
 
 pyQuickBase: Python Interface to QuickBase API
-=========================
+==================================================
 
 .. image:: https://badge.fury.io/py/pyquickbase.png
     :target: http://badge.fury.io/py/pyquickbase
@@ -12,9 +12,13 @@ pyQuickBase is an MIT licensed client library for the Intuit QuickBase API, usin
 Version
 -------
 
+0.2.3
+-----
+- Added a new `return_file` function to retrieve a QuickBase file as a Python file object.
+
 0.2.2
 -----
-- Just fixed the readme.
+- Fixed a readme issue.
 
 0.2.1
 -----

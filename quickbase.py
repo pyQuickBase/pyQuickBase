@@ -451,6 +451,11 @@ class Client(object):
         return new_file
 
 
+    def return_file(self, url):
+        headers = {'Cookie': 'ticket=%s' % self.ticket }
+        response = requests.get(url, headers=headers)
+        return os.path.basename(url), response.content
+
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
