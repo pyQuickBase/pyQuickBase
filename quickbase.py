@@ -293,7 +293,7 @@ class Client(object):
             request['qname'] = qname
 
         if columns:
-            request['clist'] = '.'.join(str(c) for c in columns)
+            request['clist'] = columns
         if sort:
             request['slist'] = '.'.join(str(c) for c in sort)
         if structured:
