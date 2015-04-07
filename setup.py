@@ -5,7 +5,7 @@ except ImportError:
 
 setup(
     name='pyquickbase',
-    version='0.2.3',
+    version='0.2.5',
     author='Kevin V Seelbach',
     author_email='kevin.seelbach@gmail.com',
     py_modules=['quickbase'],
