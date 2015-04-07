@@ -14,7 +14,7 @@ Version
 
 0.2.5
 -----
-- Added streaming to the request function, (saves request to temp file '.request')
+- Added streaming to the request function.
 
 0.2.4
 -----
