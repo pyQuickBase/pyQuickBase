@@ -12,6 +12,10 @@ pyQuickBase is an MIT licensed client library for the Intuit QuickBase API, usin
 Version
 -------
 
+0.2.5
+-----
+- Added streaming to the request function.
+
 0.2.4
 -----
 - Fixed _parse_records to check for <url> child in structured record fields (for file downloading).

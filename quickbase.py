@@ -216,12 +216,14 @@ class Client(object):
             'Content-Type': 'application/xml',
             'QUICKBASE-ACTION': 'API_' + action,
         }
-        request = requests.post(url, data, headers=headers)
-        response = request.content
-        encoding = chardet.detect(response)['encoding']
-
-        if encoding != 'utf-8':
-            response = response.decode(encoding, 'replace').encode('utf-8')
+        response = ""
+        request = requests.post(url, data, headers=headers, stream=True)
+        if request.status_code == 200:
+            for chunk in request.iter_content(2048):
+                encode = chardet.detect(chunk)['encoding']
+                if encode != 'utf-8':
+                    chunk = chunk.decode(encode, 'replace').encode('utf-8')
+                response += chunk
 
         try:
             parsed = etree.fromstring(response)
