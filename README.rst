@@ -5,8 +5,12 @@ pyQuickBase: Python Interface to QuickBase API
 .. image:: https://badge.fury.io/py/pyquickbase.png
     :target: http://badge.fury.io/py/pyquickbase
 
-
 pyQuickBase is an MIT licensed client library for the Intuit QuickBase API, using `Requests`_ for HTTP, and `lxml`_ is used for XML processing.
+
+Warning - this library is no longer maintained!
+-------
+
+I no longer work with the QuickBase platform and can not guarantee that this library even works. If you are a Python developer and would like to take over maintaining it; please contact me by email at kevin.seelbach@gmail.com.
 
 
 Version
@@ -104,7 +108,7 @@ License
 
 MIT, See license file.
 
-Developed by `Kevin V Seelbach <http://www.kevinseelbach.com>`_. You may `email me directly`_ if you have questions or need help.
+Developed by `Kevin V Seelbach`_.  I am no longer working on the QuickBase platform (have not since late 2012) and can not guarantee support or that this implementation even works. 
 
 
 Contribute
@@ -117,4 +121,4 @@ Contribute
 .. _`the repository`: http://github.com/kevinseelbach/pyQuickBase
 .. _lxml: http://lxml.de/
 .. _Requests: http://docs.python-requests.org/en/latest/
-.. _email me directly: kevin.seelbach@gmail.com
+.. _`Kevin V Seelbach`: kevin.seelbach@gmail.com
