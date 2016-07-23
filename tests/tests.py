@@ -5,10 +5,10 @@ import quickbase
 import pprint
 from lxml import etree
 
-QUICKBASE_USER = os.environ['QUICKBASE_USER'] 
+QUICKBASE_USER = os.environ['QUICKBASE_USER']
 QUICKBASE_PASSWORD = os.environ['QUICKBASE_PASSWORD']
-TEST_APP_TOKEN = # Your app token 
-TEST_APP_DBID = # Your app dbid 
+TEST_APP_TOKEN = # Your app token
+TEST_APP_DBID = # Your app dbid
 TEST_TABLE_DBID = # The table you are working with
 TEST_BASE_URL = # Your QuickBase URL
 pp = pprint.PrettyPrinter(indent=4)
@@ -18,9 +18,9 @@ class APITestCase(unittest.TestCase):
     username = QUICKBASE_USER
     password = QUICKBASE_PASSWORD
     app_dbid = TEST_APP_DBID
-    table_dbid = TEST_TABLE_DBID 
+    table_dbid = TEST_TABLE_DBID
     import_csv_dbid = TEST_TABLE_DBID
-    test_csv_file = # Your test file path  
+    test_csv_file = # Your test file path
     test_csv_clist =  # Your test clist (string period delimited)
     realm = TEST_BASE_URL
     apptoken = TEST_APP_TOKEN
